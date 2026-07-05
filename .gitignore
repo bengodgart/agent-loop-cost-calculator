@@ -1,0 +1,10 @@
+# Node / editors / OS
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Private go-to-market assets (not part of the public tool)
+/posts/
+/publish-guide.html

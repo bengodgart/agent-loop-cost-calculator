@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Loop Cost Calculator</title>
+<style>
+  :root{
+    --bg:#0f172a; --surface:#1e293b; --surface2:#243349; --line:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8;
+    --green:#22c55e; --red:#ef4444; --orange:#f59e0b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:800px;margin:0 auto;padding:28px 18px 72px;}
+  h1{font-size:1.6rem;margin:0 0 2px;letter-spacing:-.02em;}
+  .tagline{color:var(--muted);margin:0 0 22px;font-size:.98rem;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0;}
+  label{display:block;font-size:.86rem;color:var(--muted);margin:0 0 4px;}
+  .field{margin:12px 0;}
+  input[type=number]{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 11px;font-size:1rem;}
+  input:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  .row{display:flex;gap:14px;flex-wrap:wrap;}
+  .row .field{flex:1;min-width:150px;}
+  .seg{display:flex;gap:6px;flex-wrap:wrap;}
+  .seg button{flex:1;min-width:80px;background:var(--surface2);border:1px solid var(--line);color:var(--text);padding:9px 6px;border-radius:8px;cursor:pointer;font-size:.92rem;}
+  .seg button[aria-pressed=true]{background:var(--accent);color:#0f172a;border-color:var(--accent);font-weight:700;}
+  .rates-note{color:var(--muted);font-size:.8rem;margin:10px 0 0;}
+  .rates-note a{color:var(--accent);}
+  .out{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;margin:16px 0;}
+  .headline{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:6px;}
+  .stat{flex:1;min-width:200px;}
+  .stat .lbl{color:var(--muted);font-size:.82rem;}
+  .stat .num{font-size:1.9rem;font-weight:700;color:#fff;}
+  .stat.true .num{color:var(--green);}
+  .stat.naive .num{color:var(--orange);}
+  .conclusion{background:var(--surface2);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;margin-top:14px;font-size:1rem;font-weight:600;color:#fff;}
+  .bar{height:14px;background:var(--surface2);border-radius:7px;overflow:hidden;margin:14px 0 4px;display:flex;}
+  .bar .seg1{background:var(--green);height:100%;}
+  .bar .seg2{background:var(--orange);height:100%;}
+  .bar-labels{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+  .toggle-row label{margin:0;}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:.86rem;}
+  td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;}
+  td:first-child,th:first-child{text-align:left;}
+  th{color:var(--muted);font-size:.72rem;text-transform:uppercase;}
+  td.action{text-align:left;}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.74rem;font-weight:700;}
+  .pill.write{background:rgba(245,158,11,.18);color:var(--orange);}
+  .pill.read{background:rgba(34,197,94,.18);color:var(--green);}
+  .pill.none{background:rgba(148,163,184,.18);color:var(--muted);}
+  .alert{background:rgba(239,68,68,.12);border:1px solid var(--red);color:#fecaca;border-radius:8px;padding:10px 14px;margin:12px 0;font-size:.9rem;}
+  .alert ul{margin:6px 0 0;padding-left:20px;}
+  button.copy{background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 14px;cursor:pointer;font-size:.9rem;margin-top:14px;}
+  button.copy:hover{border-color:var(--accent);}
+  .sources{color:var(--muted);font-size:.8rem;margin-top:26px;border-top:1px solid var(--line);padding-top:14px;}
+  .sources a{color:var(--accent);}
+  a{color:var(--accent);}
+  .table-title{font-size:.92rem;color:var(--muted);margin:0 0 4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Agent Loop Cost Calculator</h1>
+  <p class="tagline">Model an agentic conversation turn by turn and see the true cached cost next to what a generic per-call calculator would tell you. Nothing is stored; everything runs in your browser.</p>
+
+  <div class="card">
+    <div class="field">
+      <label>Model</label>
+      <div class="seg" id="model" role="group" aria-label="Model">
+        <button type="button" data-model="claude-opus" aria-pressed="false">Claude Opus</button>
+        <button type="button" data-model="claude-sonnet" aria-pressed="true">Claude Sonnet</button>
+        <button type="button" data-model="claude-haiku" aria-pressed="false">Claude Haiku</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Prompt caching</label>
+      <div class="seg" id="caching" role="group" aria-label="Prompt caching">
+        <button type="button" data-caching="on" aria-pressed="true">On</button>
+        <button type="button" data-caching="off" aria-pressed="false">Off</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="systemTokens">System-prompt tokens</label>
+        <input type="number" id="systemTokens" value="1500" min="0" step="50">
+      </div>
+      <div class="field">
+        <label for="toolTokens">Tool-definition tokens</label>
+        <input type="number" id="toolTokens" value="3500" min="0" step="50">
+      </div>
+      <div class="field">
+        <label for="numTurns">Number of turns</label>
+        <input type="number" id="numTurns" value="20" min="1" max="500" step="1">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="userTokens">Per-turn new user tokens</label>
+        <input type="number" id="userTokens" value="300" min="0" step="10">
+      </div>
+      <div class="field">
+        <label for="outputTokens">Per-turn model output tokens</label>
+        <input type="number" id="outputTokens" value="600" min="0" step="10">
+      </div>
+    </div>
+
+    <p class="rates-note" id="ratesNote"></p>
+  </div>
+
+  <div id="alert"></div>
+
+  <div class="out" id="headlineOut"></div>
+
+  <div class="card">
+    <div class="toggle-row">
+      <p class="table-title" id="tableTitle" style="margin:0"></p>
+    </div>
+    <table id="breakdown"><tbody></tbody></table>
+  </div>
+
+  <button class="copy" id="copyBtn" type="button">Copy a summary</button>
+
+  <div class="sources">
+    Estimates only, not a quote. Model prices and prompt-caching multipliers change; verify against
+    <a href="https://platform.claude.com/docs/en/pricing" target="_blank" rel="noopener">Claude pricing</a>
+    and
+    <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching" target="_blank" rel="noopener">prompt caching docs</a>.
+    Checked July 2026.
+  </div>
+</div>
+
+<script src="calc.js"></script>
+<script>
+  var state = { model: "claude-sonnet", cachingOn: true };
+
+  function fmt(n) {
+    var abs = Math.abs(n);
+    var digits = abs < 1 ? 4 : abs < 100 ? 2 : 0;
+    return "$" + n.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+
+  function readInputs() {
+    return {
+      model: state.model,
+      systemPromptTokens: document.getElementById("systemTokens").value,
+      toolDefTokens: document.getElementById("toolTokens").value,
+      perTurnUserTokens: document.getElementById("userTokens").value,
+      perTurnOutputTokens: document.getElementById("outputTokens").value,
+      numTurns: document.getElementById("numTurns").value,
+    };
+  }
+
+  function renderRatesNote() {
+    var m = CostCalc.MODEL_DEFAULTS[state.model];
+    document.getElementById("ratesNote").innerHTML =
+      m.label + ": $" + m.in.toFixed(2) + " / 1M input tokens, $" + m.out.toFixed(2) + " / 1M output tokens. " +
+      "Cache write (5-min TTL): " + CostCalc.CACHE_WRITE_MULTIPLIER + "x base input. Cache read: " + CostCalc.CACHE_READ_MULTIPLIER + "x base input. " +
+      "Rates are edited in calc.js; see sources below.";
+  }
+
+  var lastSummary = "";
+
+  function render() {
+    var inputs = readInputs();
+    var cmp = CostCalc.compare(inputs);
+    var alertBox = document.getElementById("alert");
+    var headlineOut = document.getElementById("headlineOut");
+
+    if (cmp.errors && cmp.errors.length) {
+      alertBox.innerHTML = "<div class='alert'>Please fix:<ul>" +
+        cmp.errors.map(function (e) { return "<li>" + e + "</li>"; }).join("") + "</ul></div>";
+      headlineOut.innerHTML = "";
+      document.querySelector("#breakdown tbody").innerHTML = "";
+      document.getElementById("tableTitle").textContent = "";
+      return;
+    }
+    alertBox.innerHTML = "";
+
+    var maxTotal = Math.max(cmp.withCaching.total, cmp.withoutCaching.total, 0.0001);
+    var truePct = (cmp.withCaching.total / maxTotal) * 100;
+    var naivePct = (cmp.withoutCaching.total / maxTotal) * 100;
+
+    headlineOut.innerHTML =
+      "<div class='headline'>" +
+        "<div class='stat true'><div class='lbl'>True cached cost (with prompt caching)</div><div class='num'>" + fmt(cmp.withCaching.total) + "</div></div>" +
+        "<div class='stat naive'><div class='lbl'>Naive per-call estimate (no caching)</div><div class='num'>" + fmt(cmp.withoutCaching.total) + "</div></div>" +
+      "</div>" +
+      "<div class='bar'><div class='seg1' style='width:" + truePct.toFixed(1) + "%'></div></div>" +
+      "<div class='bar'><div class='seg2' style='width:" + naivePct.toFixed(1) + "%'></div></div>" +
+      "<div class='conclusion'>" + cmp.conclusion + "</div>";
+
+    renderTable(state.cachingOn ? cmp.withCaching : cmp.withoutCaching);
+
+    var modelLabel = CostCalc.MODEL_DEFAULTS[state.model].label;
+    lastSummary = "Agent loop cost (" + modelLabel + ", " + inputs.numTurns + " turns): true cached cost " +
+      fmt(cmp.withCaching.total) + " vs naive per-call estimate " + fmt(cmp.withoutCaching.total) + ". " + cmp.conclusion;
+  }
+
+  function renderTable(result) {
+    document.getElementById("tableTitle").textContent =
+      "Per-turn breakdown, caching " + (result.cachingEnabled ? "ON" : "OFF") + " (" + result.modelLabel + ")";
+    var rows = result.turns.map(function (t) {
+      var pillClass = t.cacheAction === "write" ? "write" : t.cacheAction === "read" ? "read" : "none";
+      var pillLabel = t.cacheAction === "write" ? "cache write" : t.cacheAction === "read" ? "cache read" : "no cache";
+      return "<tr>" +
+        "<td>" + t.turn + "</td>" +
+        "<td class='action'><span class='pill " + pillClass + "'>" + pillLabel + "</span></td>" +
+        "<td>" + fmt(t.prefixCost) + "</td>" +
+        "<td>" + t.historyTokens.toLocaleString() + "</td>" +
+        "<td>" + fmt(t.historyCost) + "</td>" +
+        "<td>" + fmt(t.newUserCost + t.outputCost) + "</td>" +
+        "<td>" + fmt(t.turnCost) + "</td>" +
+        "<td>" + fmt(t.cumulativeCost) + "</td>" +
+      "</tr>";
+    }).join("");
+    document.querySelector("#breakdown tbody").innerHTML =
+      "<tr><th>Turn</th><th class='action'>Prefix</th><th>Prefix cost</th><th>History tok</th><th>History cost</th><th>New + output</th><th>Turn cost</th><th>Running total</th></tr>" +
+      rows;
+  }
+
+  // wire model picker
+  document.getElementById("model").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-model]");
+    if (!btn) return;
+    state.model = btn.getAttribute("data-model");
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+    });
+    renderRatesNote();
+    render();
+  });
+
+  // wire caching toggle
+  document.getElementById("caching").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-caching]");
+    if (!btn) return;
+    state.cachingOn = btn.getAttribute("data-caching") === "on";
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+    });
+    render();
+  });
+
+  ["systemTokens", "toolTokens", "numTurns", "userTokens", "outputTokens"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", render);
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", function () {
+    var btn = this;
+    navigator.clipboard.writeText(lastSummary).then(function () {
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = "Copy a summary"; }, 1500);
+    });
+  });
+
+  renderRatesNote();
+  render();
+</script>
+</body>
+</html>
